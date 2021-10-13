@@ -1,2 +1,2 @@
-# cache-server
-Basic cache server to handle http and grpc requests
+## Cache Server
+Basic cache server to handle HTTP and gRPC requests
