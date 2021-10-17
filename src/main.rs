@@ -6,11 +6,15 @@ extern crate serde;
 
 extern crate tonic;
 
+extern crate config as config_rs;
+
 use actix_web::web::Data;
+
 use futures::{lock::Mutex, try_join};
 use in_memory_cache::Cache;
 
 mod auth;
+mod config;
 mod grpc_server;
 mod http_server;
 
@@ -41,8 +45,10 @@ where
 async fn main() -> anyhow::Result<()> {
 	let cache = Data::new(Mutex::new(Cache::with_size_mb(1)));
 
-	let http_server = crate::http_server::prepare_http_server(Data::clone(&cache));
-	let grpc_server = crate::grpc_server::prepare_grpc_server(Data::clone(&cache));
+	let config = Data::new(crate::config::Config::new()?);
+
+	let http_server = crate::http_server::prepare_http_server(Data::clone(&cache), Data::clone(&config));
+	let grpc_server = crate::grpc_server::prepare_grpc_server(Data::clone(&cache), Data::clone(&config));
 
 	if let Err(e) = try_join!(http_server, grpc_server) {
 		println!("{:?}", e);

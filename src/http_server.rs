@@ -5,6 +5,7 @@ use actix_web::{HttpResponse, HttpServer};
 use futures::lock::Mutex;
 use in_memory_cache::Cache;
 use std::ops::DerefMut;
+use std::str::FromStr;
 
 use crate::auth::authentication_service_client::AuthenticationServiceClient;
 use crate::auth::SessionRequest;
@@ -40,8 +41,15 @@ async fn get_cache(
 	}
 }
 
-async fn check_session(token: String) -> anyhow::Result<bool> {
-	let mut client = AuthenticationServiceClient::connect("http://[::1]:5055")
+async fn check_session(token: String, config: Data<crate::config::Config>) -> anyhow::Result<bool> {
+	let url: &str = config.auth_server.url.as_str();
+
+	let endpoint = tonic::transport::channel::Endpoint::from_str(url).map_err(|e| {
+		eprintln!("{:?}", e);
+		anyhow::Error::new(e).context("Unable to create endpoint from url")
+	})?;
+
+	let mut client = AuthenticationServiceClient::connect(endpoint)
 		.await
 		.map_err(|e| anyhow::Error::new(e).context("Unable to connect to provided gRPC host:port"))?;
 
@@ -54,18 +62,26 @@ async fn check_session(token: String) -> anyhow::Result<bool> {
 	Ok(response.valid)
 }
 
-pub async fn prepare_http_server(cache: Data<Mutex<Cache>>) -> anyhow::Result<()> {
+pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::config::Config>) -> anyhow::Result<()> {
+	let local_config = Data::clone(&config);
+
 	let http_init = move || {
+		let config = Data::clone(&config);
+
 		App::new()
 			.app_data(Data::clone(&cache))
-			.wrap_fn(|req, srv| {
-				let token = req.cookie("x-token").map(|cookie| cookie.value().to_owned());
+			.wrap_fn(move |req, srv| {
+				let async_config = Data::clone(&config);
+
+				let token: Option<String> = req
+					.cookie(&async_config.auth_server.token_key)
+					.map(|cookie| cookie.value().to_owned());
 
 				let fut = srv.call(req);
 
 				async {
 					if let Some(token) = token {
-						if let Ok(valid) = check_session(token).await {
+						if let Ok(valid) = check_session(token, async_config).await {
 							if valid {
 								if let Ok(res) = fut.await {
 									return Ok(res);
@@ -82,7 +98,7 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>) -> anyhow::Result<()
 	};
 
 	HttpServer::new(http_init)
-		.bind(("0.0.0.0", 1337))
+		.bind((local_config.http_server.host.as_str(), local_config.http_server.port))
 		.map(|srv| {
 			println!("http server is starting on {:?}", srv.addrs_with_scheme());
 
