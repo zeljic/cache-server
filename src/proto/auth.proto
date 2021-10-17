@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package auth;
+
+message SessionRequest {
+  string Token = 1;
+}
+
+message SessionResponse {
+  bool valid = 1;
+}
+
+service AuthenticationService {
+  rpc IsSessionValid(SessionRequest) returns (SessionResponse);
+}

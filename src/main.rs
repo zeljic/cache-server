@@ -4,18 +4,21 @@ extern crate actix_web;
 #[macro_use]
 extern crate serde;
 
-use actix_web::web::{Data, Query};
-use actix_web::{App, HttpResponse, HttpServer};
-use futures::lock::Mutex;
-use futures::FutureExt;
+extern crate tonic;
+
+use actix_web::web::Data;
+use futures::{lock::Mutex, try_join};
 use in_memory_cache::Cache;
-use std::ops::DerefMut;
+
+mod auth;
+mod grpc_server;
+mod http_server;
 
 fn populate_cache<T>(_cache: &mut in_memory_cache::Cache, _key: T) -> Option<bytes::Bytes>
 where
 	T: Into<String>,
 {
-	todo!()
+	None
 }
 
 fn get_cached_value<T>(cache: &mut in_memory_cache::Cache, key: T) -> Option<bytes::Bytes>
@@ -34,59 +37,14 @@ where
 	value
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-struct RequestQuery {
-	path: String,
-}
-
-#[get("/cache/")]
-async fn get_cache(
-	query: Query<RequestQuery>,
-	cache: Data<Mutex<in_memory_cache::Cache>>,
-) -> actix_web::Result<actix_web::HttpResponse> {
-	let mut value = None;
-
-	cache
-		.lock()
-		.map(|mut cache| {
-			value = get_cached_value(cache.deref_mut(), &query.path);
-		})
-		.await;
-
-	match value {
-		None => Ok(HttpResponse::NotFound().finish()),
-		Some(content) => Ok(HttpResponse::Ok()
-			.insert_header((actix_web::http::header::CONTENT_LENGTH, content.len()))
-			.body(content)),
-	}
-}
-
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
-	let cache = Data::new(Mutex::new(Cache::with_size_mb(32)));
+	let cache = Data::new(Mutex::new(Cache::with_size_mb(1)));
 
-	let http_init = move || {
-		App::new()
-			.app_data(Data::clone(&cache))
-			.service(get_cache)
-			.default_service(actix_web::web::route().to(|| HttpResponse::Ok().body("zdravo, svete")))
-	};
+	let http_server = crate::http_server::prepare_http_server(Data::clone(&cache));
+	let grpc_server = crate::grpc_server::prepare_grpc_server(Data::clone(&cache));
 
-	let http_server = HttpServer::new(http_init)
-		.bind(("0.0.0.0", 1337))
-		.map(|srv| {
-			println!("http server is starting on {:?}", srv.addrs_with_scheme());
-
-			srv
-		})
-		.map_err(|e| {
-			eprintln!("{:?}", e);
-
-			e
-		})?
-		.run();
-
-	if let Err(e) = futures::try_join!(http_server) {
+	if let Err(e) = try_join!(http_server, grpc_server) {
 		println!("{:?}", e);
 	}
 
