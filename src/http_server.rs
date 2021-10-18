@@ -42,10 +42,10 @@ async fn get_cache(
 }
 
 async fn check_session(token: String, config: Data<crate::config::Config>) -> anyhow::Result<bool> {
-	let url: &str = config.auth_server.url.as_str();
+	let url: &str = config.auth.url.as_str();
 
 	let endpoint = tonic::transport::channel::Endpoint::from_str(url).map_err(|e| {
-		eprintln!("{:?}", e);
+		error!("{:?}", e);
 		anyhow::Error::new(e).context("Unable to create endpoint from url")
 	})?;
 
@@ -71,17 +71,15 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 		App::new()
 			.app_data(Data::clone(&cache))
 			.wrap_fn(move |req, srv| {
-				let async_config = Data::clone(&config);
+				let conf = Data::clone(&config);
 
-				let token: Option<String> = req
-					.cookie(&async_config.auth_server.token_key)
-					.map(|cookie| cookie.value().to_owned());
+				let token: Option<String> = req.cookie(&conf.auth.token).map(|cookie| cookie.value().to_owned());
 
 				let fut = srv.call(req);
 
 				async {
 					if let Some(token) = token {
-						if let Ok(valid) = check_session(token, async_config).await {
+						if let Ok(valid) = check_session(token, conf).await {
 							if valid {
 								if let Ok(res) = fut.await {
 									return Ok(res);
@@ -89,6 +87,8 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 							}
 						}
 					}
+
+					warn!("Unauthorized access!");
 
 					Err(actix_web::error::ErrorUnauthorized("Unauthorized"))
 				}
@@ -98,14 +98,14 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 	};
 
 	HttpServer::new(http_init)
-		.bind((local_config.http_server.host.as_str(), local_config.http_server.port))
+		.bind((local_config.http.host.as_str(), local_config.http.port))
 		.map(|srv| {
-			println!("http server is starting on {:?}", srv.addrs_with_scheme());
+			info!("http server is starting on {:?}", srv.addrs_with_scheme());
 
 			srv
 		})
 		.map_err(|e| {
-			eprintln!("{:?}", e);
+			error!("{:?}", e);
 
 			e
 		})?

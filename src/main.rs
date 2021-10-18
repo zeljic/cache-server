@@ -4,12 +4,17 @@ extern crate actix_web;
 #[macro_use]
 extern crate serde;
 
+#[macro_use]
+extern crate log;
+
 extern crate tonic;
 
 use actix_web::web::Data;
+use env_logger::WriteStyle;
+use std::str::FromStr;
 
 use futures::{lock::Mutex, try_join};
-use in_memory_cache::Cache;
+use log::LevelFilter;
 
 mod auth;
 mod config;
@@ -39,17 +44,29 @@ where
 	value
 }
 
+fn init_logging() {
+	let log_level = std::env::var("CACHE_SERVER_LOG_LEVEL").unwrap_or_else(|_| String::from("ERROR"));
+
+	if let Ok(level) = LevelFilter::from_str(&log_level) {
+		env_logger::Builder::new()
+			.filter_level(level)
+			.write_style(WriteStyle::Auto)
+			.init();
+	}
+}
+
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
-	let cache = Data::new(Mutex::new(Cache::with_size_mb(1)));
+	init_logging();
 
 	let config = Data::new(crate::config::Config::new()?);
+	let cache = Data::new(Mutex::new(in_memory_cache::Cache::with_size_mb(1)));
 
 	let http_server = crate::http_server::prepare_http_server(Data::clone(&cache), Data::clone(&config));
 	let grpc_server = crate::grpc_server::prepare_grpc_server(Data::clone(&cache), Data::clone(&config));
 
 	if let Err(e) = try_join!(http_server, grpc_server) {
-		println!("{:?}", e);
+		error!("{:?}", e);
 	}
 
 	Ok(())
