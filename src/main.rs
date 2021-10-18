@@ -6,8 +6,6 @@ extern crate serde;
 
 extern crate tonic;
 
-extern crate config as config_rs;
-
 use actix_web::web::Data;
 
 use futures::{lock::Mutex, try_join};
