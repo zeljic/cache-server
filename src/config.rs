@@ -4,27 +4,21 @@ use self::config_rs::FileFormat;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
-	#[serde(rename = "http-server")]
-	pub http_server: HttpServer,
-	#[serde(rename = "grpc-server")]
-	pub grpc_server: GRPCServer,
-	#[serde(rename = "auth-server")]
-	pub auth_server: AuthServer,
+	#[serde(rename = "http")]
+	pub http: HttpServer,
+	#[serde(rename = "grpc")]
+	pub grpc: GRPCServer,
+	#[serde(rename = "auth")]
+	pub auth: AuthServer,
 }
 
 impl Config {
 	pub fn new() -> anyhow::Result<Self> {
 		let mut config = config_rs::Config::default();
 
-		if std::path::Path::new("Config.yaml").exists() {
-			if let Err(e) = config.merge(config_rs::File::new("Config.yaml", FileFormat::Yaml)) {
-				eprintln!("{:?}", anyhow::Error::new(e));
-			}
-		}
-
 		if std::path::Path::new("Config.toml").exists() {
 			if let Err(e) = config.merge(config_rs::File::new("Config.toml", FileFormat::Toml)) {
-				eprintln!("{:?}", anyhow::Error::new(e));
+				error!("{:?}", anyhow::Error::new(e));
 			}
 		}
 
@@ -69,15 +63,14 @@ impl Default for GRPCServer {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthServer {
 	pub url: String,
-	#[serde(rename = "token-key")]
-	pub token_key: String,
+	pub token: String,
 }
 
 impl Default for AuthServer {
 	fn default() -> Self {
 		Self {
 			url: String::from("http://auth"),
-			token_key: String::new(),
+			token: String::new(),
 		}
 	}
 }

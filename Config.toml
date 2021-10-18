@@ -1,11 +1,11 @@
-[http-server]
+[http]
 host = "0.0.0.0"
 port = 1337
 
-[grpc-server]
+[grpc]
 host = "[::1]"
 port = 1338
 
-[auth-server]
-url = "http://auth:50005"
-token-key = "x-token"
+[auth]
+url = "http://auth"
+token = "x-token"
