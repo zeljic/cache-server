@@ -1,18 +1,14 @@
-use crate::get_cached_value;
-
-use actix_web::web::{Data, Query};
-use actix_web::{HttpResponse, HttpServer};
+use actix_web::{
+	web::{Data, Query},
+	HttpResponse, HttpServer,
+};
 use futures::lock::Mutex;
 use in_memory_cache::Cache;
 use std::ops::DerefMut;
-use std::str::FromStr;
 
-use crate::auth::authentication_service_client::AuthenticationServiceClient;
-use crate::auth::SessionRequest;
 use actix_web::dev::Service;
 
 use actix_web::App;
-use futures::FutureExt;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct RequestQuery {
@@ -24,42 +20,18 @@ async fn get_cache(
 	query: Query<RequestQuery>,
 	cache: Data<Mutex<in_memory_cache::Cache>>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-	let mut value = None;
+	match async {
+		let mut cache = cache.lock().await;
 
-	cache
-		.lock()
-		.map(|mut cache| {
-			value = get_cached_value(cache.deref_mut(), &query.path);
-		})
-		.await;
-
-	match value {
+		crate::get_cached_value(cache.deref_mut(), &query.path)
+	}
+	.await
+	{
 		None => Ok(HttpResponse::NotFound().finish()),
 		Some(content) => Ok(HttpResponse::Ok()
 			.insert_header((actix_web::http::header::CONTENT_LENGTH, content.len()))
 			.body(content)),
 	}
-}
-
-async fn check_session(token: String, config: Data<crate::config::Config>) -> anyhow::Result<bool> {
-	let url: &str = config.auth.url.as_str();
-
-	let endpoint = tonic::transport::channel::Endpoint::from_str(url).map_err(|e| {
-		error!("{:?}", e);
-		anyhow::Error::new(e).context("Unable to create endpoint from url")
-	})?;
-
-	let mut client = AuthenticationServiceClient::connect(endpoint)
-		.await
-		.map_err(|e| anyhow::Error::new(e).context("Unable to connect to provided gRPC host:port"))?;
-
-	let response = client
-		.is_session_valid(tonic::Request::new(SessionRequest { token }))
-		.await
-		.map_err(|e| anyhow::Error::new(e).context("gRPC service is_session_valid returns error"))?
-		.into_inner();
-
-	Ok(response.valid)
 }
 
 pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::config::Config>) -> anyhow::Result<()> {
@@ -79,7 +51,7 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 
 				async {
 					if let Some(token) = token {
-						if let Ok(valid) = check_session(token, conf).await {
+						if let Ok(valid) = crate::check_session(&token, conf).await {
 							if valid {
 								if let Ok(res) = fut.await {
 									return Ok(res);

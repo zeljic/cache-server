@@ -1,7 +1,7 @@
 [package]
 name = "cache-server"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 authors = ["Đorđe Zeljić <zeljic@gmail.com>"]
 
 [dependencies.in-memory-cache]
@@ -9,7 +9,7 @@ version = "0.1.0"
 path = "../in-memory-cache"
 
 [dependencies.actix-web]
-version = "4.0.0-beta.9"
+version = "4.0.0-beta.10"
 
 [dependencies.futures]
 version = "0.3"
