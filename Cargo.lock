@@ -372,6 +372,7 @@ dependencies = [
  "prost",
  "serde 1.0.130",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-build",
 ]
