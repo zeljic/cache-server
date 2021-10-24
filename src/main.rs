@@ -94,12 +94,6 @@ async fn main() -> anyhow::Result<()> {
 	let config = Data::new(crate::config::Config::new()?);
 	let cache = Data::new(Mutex::new(in_memory_cache::Cache::with_size_mb(1)));
 
-	{
-		let mut cache = cache.lock().await;
-
-		cache.add("/dog.jpg", std::fs::read("/home/zeljic/Desktop/dog.jpg")?)?;
-	}
-
 	let http_server = crate::http_server::prepare_http_server(Data::clone(&cache), Data::clone(&config));
 	let grpc_server = crate::grpc_server::prepare_grpc_server(Data::clone(&cache), Data::clone(&config));
 
