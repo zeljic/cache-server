@@ -33,6 +33,9 @@ version = "0.8"
 version = "1"
 features = ["macros", "rt-multi-thread"]
 
+[dependencies.tokio-stream]
+version = "0.1"
+
 [dependencies.config]
 version = "0.11"
 

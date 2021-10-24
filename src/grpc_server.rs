@@ -3,7 +3,7 @@ use crate::cache_server::{
 	CacheRequest, CacheResponse,
 };
 use actix_web::web::Data;
-use futures::{lock::Mutex, Stream};
+use futures::{lock::Mutex, Stream, StreamExt};
 use in_memory_cache::Cache;
 
 use std::{ops::DerefMut, pin::Pin};
@@ -43,9 +43,30 @@ impl CacheService for CacheServerService {
 
 	async fn get_content_stream(
 		&self,
-		_request: Request<CacheRequest>,
+		request: Request<CacheRequest>,
 	) -> Result<Response<Self::GetContentStreamStream>, Status> {
-		todo!()
+		let path = request.get_ref().path.to_owned();
+
+		let cache = Data::clone(&self.cache);
+		let (tx, rx) = tokio::sync::mpsc::channel(4);
+
+		tokio::spawn(async move {
+			if let Some(content) = async {
+				let mut cache = cache.lock().await;
+
+				crate::get_cached_value(cache.deref_mut(), &path)
+			}
+			.await
+			{
+				let mut stream = tokio_stream::iter(content.chunks(4 * 1024));
+
+				while let Some(chunk) = stream.next().await {
+					if tx.send(Ok(CacheResponse { content: chunk.to_vec() })).await.is_ok() {}
+				}
+			}
+		});
+
+		Ok(Response::new(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))))
 	}
 }
 
