@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package cache_server;
+
+service CacheService {
+  rpc GetContent (CacheRequest) returns (CacheResponse);
+  rpc GetContentStream (CacheRequest) returns (stream CacheResponse);
+}
+
+message CacheRequest {
+  string path = 1;
+}
+
+message CacheResponse {
+  bytes content = 1;
+}

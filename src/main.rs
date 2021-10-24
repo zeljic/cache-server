@@ -13,10 +13,14 @@ use actix_web::web::Data;
 use env_logger::WriteStyle;
 use std::str::FromStr;
 
+use crate::auth::SessionRequest;
 use futures::{lock::Mutex, try_join};
 use log::LevelFilter;
 
+use crate::auth::authentication_service_client::AuthenticationServiceClient;
+
 mod auth;
+mod cache_server;
 mod config;
 mod grpc_server;
 mod http_server;
@@ -44,8 +48,36 @@ where
 	value
 }
 
+pub async fn check_session(token: &str, config: Data<crate::config::Config>) -> anyhow::Result<bool> {
+	let url: &str = config.auth.url.as_str();
+
+	let endpoint = tonic::transport::channel::Endpoint::from_str(url).map_err(|e| {
+		error!("{:?}", e);
+		anyhow::Error::new(e).context("Unable to create endpoint from url")
+	})?;
+
+	let mut client = AuthenticationServiceClient::connect(endpoint)
+		.await
+		.map_err(|e| anyhow::Error::new(e).context("Unable to connect to provided gRPC host:port"))?;
+
+	let response = client
+		.is_session_valid(tonic::Request::new(SessionRequest { token: token.to_owned() }))
+		.await
+		.map_err(|e| anyhow::Error::new(e).context("gRPC service is_session_valid returns error"))?
+		.into_inner();
+
+	Ok(response.valid)
+}
+
+pub fn check_session_blocking(token: &str, config: Data<crate::config::Config>) -> anyhow::Result<bool> {
+	futures::executor::block_on(check_session(token, config))
+}
+
 fn init_logging() {
-	let log_level = std::env::var("CACHE_SERVER_LOG_LEVEL").unwrap_or_else(|_| String::from("ERROR"));
+	let log_level = match std::env::var("CACHE_SERVER_LOG_LEVEL") {
+		Ok(level) => level,
+		Err(_) => String::from("ERROR"),
+	};
 
 	if let Ok(level) = LevelFilter::from_str(&log_level) {
 		env_logger::Builder::new()
@@ -61,6 +93,12 @@ async fn main() -> anyhow::Result<()> {
 
 	let config = Data::new(crate::config::Config::new()?);
 	let cache = Data::new(Mutex::new(in_memory_cache::Cache::with_size_mb(1)));
+
+	{
+		let mut cache = cache.lock().await;
+
+		cache.add("/dog.jpg", std::fs::read("/home/zeljic/Desktop/dog.jpg")?)?;
+	}
 
 	let http_server = crate::http_server::prepare_http_server(Data::clone(&cache), Data::clone(&config));
 	let grpc_server = crate::grpc_server::prepare_grpc_server(Data::clone(&cache), Data::clone(&config));
