@@ -23,7 +23,7 @@ async fn get_cache(
 	match async {
 		let mut cache = cache.lock().await;
 
-		crate::get_cached_value(cache.deref_mut(), &query.path)
+		crate::get_cached_value(cache.deref_mut(), &query.path).await
 	}
 	.await
 	{

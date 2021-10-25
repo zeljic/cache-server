@@ -8,7 +8,7 @@ use in_memory_cache::Cache;
 
 use std::{ops::DerefMut, pin::Pin};
 
-use tonic::{Request, Response, Status};
+use tonic::{service::Interceptor, Request, Response, Status};
 
 type PinBoxResponse<T> = Pin<Box<dyn Stream<Item = Result<T, Status>> + Send + Sync>>;
 
@@ -24,7 +24,7 @@ impl CacheService for CacheServerService {
 		return match async {
 			let mut cache = self.cache.lock().await;
 
-			crate::get_cached_value(cache.deref_mut(), path)
+			crate::get_cached_value(cache.deref_mut(), path).await
 		}
 		.await
 		{
@@ -54,7 +54,7 @@ impl CacheService for CacheServerService {
 			if let Some(content) = async {
 				let mut cache = cache.lock().await;
 
-				crate::get_cached_value(cache.deref_mut(), &path)
+				crate::get_cached_value(cache.deref_mut(), &path).await
 			}
 			.await
 			{
@@ -70,20 +70,35 @@ impl CacheService for CacheServerService {
 	}
 }
 
-fn auth_intercept(req: Request<()>, config: Data<crate::config::Config>) -> anyhow::Result<Request<()>, Status> {
-	if let Some(token) = req.metadata().get("token") {
-		if let Ok(token) = String::from_utf8(token.as_bytes().to_vec()) {
-			if let Ok(valid) = crate::check_session_blocking(&token, config) {
-				return if valid {
-					Ok(req)
-				} else {
-					Err(Status::unauthenticated("Invalid token"))
-				};
+#[derive(Clone)]
+struct AuthenticationInterceptor {
+	config: Data<crate::config::Config>,
+}
+
+impl AuthenticationInterceptor {
+	fn new(config: Data<crate::config::Config>) -> Self {
+		Self { config }
+	}
+}
+
+impl Interceptor for AuthenticationInterceptor {
+	fn call(&mut self, req: Request<()>) -> Result<Request<()>, Status> {
+		let config = Data::clone(&self.config);
+
+		if let Some(token) = req.metadata().get("token") {
+			if let Ok(token) = String::from_utf8(token.as_bytes().to_vec()) {
+				if let Ok(valid) = crate::check_session_blocking(&token, config) {
+					return if valid {
+						Ok(req)
+					} else {
+						Err(Status::unauthenticated("Invalid token"))
+					};
+				}
 			}
 		}
-	}
 
-	Err(Status::unauthenticated("Invalid session"))
+		Err(Status::unauthenticated("Invalid session"))
+	}
 }
 
 pub async fn prepare_grpc_server(cache: Data<Mutex<Cache>>, config: Data<crate::config::Config>) -> anyhow::Result<()> {
@@ -93,10 +108,10 @@ pub async fn prepare_grpc_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 		cache: Data::clone(&cache),
 	};
 
+	let auth_intercept = AuthenticationInterceptor::new(config);
+
 	tonic::transport::Server::builder()
-		.add_service(CacheServiceServer::with_interceptor(cache_server_service, move |req| {
-			auth_intercept(req, Data::clone(&config))
-		}))
+		.add_service(CacheServiceServer::with_interceptor(cache_server_service, auth_intercept))
 		.serve_with_shutdown(addr, async {
 			info!("Wait for CTRL+C to close grpc Server");
 

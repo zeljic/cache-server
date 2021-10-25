@@ -25,14 +25,14 @@ mod config;
 mod grpc_server;
 mod http_server;
 
-fn populate_cache<T>(_cache: &mut in_memory_cache::Cache, _key: T) -> Option<bytes::Bytes>
+async fn populate_cache<T>(_cache: &mut in_memory_cache::Cache, _key: T) -> Option<bytes::Bytes>
 where
 	T: Into<String>,
 {
 	None
 }
 
-fn get_cached_value<T>(cache: &mut in_memory_cache::Cache, key: T) -> Option<bytes::Bytes>
+async fn get_cached_value<T>(cache: &mut in_memory_cache::Cache, key: T) -> Option<bytes::Bytes>
 where
 	T: Into<String>,
 {
@@ -42,7 +42,7 @@ where
 	let mut value: Option<bytes::Bytes> = cache.get_bytes(key);
 
 	if value.is_none() {
-		value = populate_cache(cache, key);
+		value = populate_cache(cache, key).await;
 	}
 
 	value
