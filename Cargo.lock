@@ -792,7 +792,8 @@ dependencies = [
 
 [[package]]
 name = "in-memory-cache"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/zeljic/in-memory-cache.git#853900678580ca7b94c073c1304ec8be02f51802"
 dependencies = [
  "anyhow",
  "bytes",

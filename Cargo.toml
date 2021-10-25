@@ -5,8 +5,8 @@ edition = "2021"
 authors = ["Đorđe Zeljić <zeljic@gmail.com>"]
 
 [dependencies.in-memory-cache]
-version = "0.1.0"
-path = "../in-memory-cache"
+version = "0.2.0"
+git = "https://github.com/zeljic/in-memory-cache.git"
 
 [dependencies.actix-web]
 version = "4.0.0-beta.10"
@@ -52,4 +52,4 @@ version = "1"
 version = "0.5"
 
 [profile.release]
-lto = false
+lto = true
