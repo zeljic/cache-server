@@ -3,7 +3,7 @@ host = "0.0.0.0"
 port = 1337
 
 [grpc]
-host = "[::1]"
+host = "0.0.0.0"
 port = 1338
 
 [auth]
