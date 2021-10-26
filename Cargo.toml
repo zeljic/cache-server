@@ -24,10 +24,10 @@ version = "1"
 version = "1"
 
 [dependencies.tonic]
-version = "0.5"
+version = "0.6"
 
 [dependencies.prost]
-version = "0.8"
+version = "0.9"
 
 [dependencies.tokio]
 version = "1"
@@ -49,7 +49,7 @@ version = "0.9"
 version = "1"
 
 [build-dependencies.tonic-build]
-version = "0.5"
+version = "0.6"
 
 [profile.release]
-lto = true
+lto = false

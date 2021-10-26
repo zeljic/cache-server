@@ -20,10 +20,7 @@ pub mod cache_service_server {
 			request: tonic::Request<super::CacheRequest>,
 		) -> Result<tonic::Response<super::CacheResponse>, tonic::Status>;
 		#[doc = "Server streaming response type for the GetContentStream method."]
-		type GetContentStreamStream: futures_core::Stream<Item = Result<super::CacheResponse, tonic::Status>>
-			+ Send
-			+ Sync
-			+ 'static;
+		type GetContentStreamStream: futures_core::Stream<Item = Result<super::CacheResponse, tonic::Status>> + Send + 'static;
 		async fn get_content_stream(
 			&self,
 			request: tonic::Request<super::CacheRequest>,
@@ -56,7 +53,7 @@ pub mod cache_service_server {
 	impl<T, B> tonic::codegen::Service<http::Request<B>> for CacheServiceServer<T>
 	where
 		T: CacheService,
-		B: Body + Send + Sync + 'static,
+		B: Body + Send + 'static,
 		B::Error: Into<StdError> + Send + 'static,
 	{
 		type Response = http::Response<tonic::body::BoxBody>;

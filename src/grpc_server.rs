@@ -8,6 +8,9 @@ use in_memory_cache::Cache;
 
 use std::{ops::DerefMut, pin::Pin};
 
+#[cfg(unix)]
+use tokio::signal::unix::{signal, SignalKind};
+
 use tonic::{service::Interceptor, Request, Response, Status};
 
 type PinBoxResponse<T> = Pin<Box<dyn Stream<Item = Result<T, Status>> + Send + Sync>>;
@@ -113,10 +116,27 @@ pub async fn prepare_grpc_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 	tonic::transport::Server::builder()
 		.add_service(CacheServiceServer::with_interceptor(cache_server_service, auth_intercept))
 		.serve_with_shutdown(addr, async {
-			info!("Wait for CTRL+C to close grpc Server");
+			#[cfg(unix)]
+			{
+				if let (Ok(mut sigint), Ok(mut sigterm)) = (signal(SignalKind::interrupt()), signal(SignalKind::terminate())) {
+					tokio::select! {
+						_ = sigint.recv() => {
+							info!("Signal interrupt (SIGINT) is received");
+						},
+						_ = sigterm.recv() => {
+							info!("Signal terminate (SIGTERM) is received");
+						}
+					}
+				}
+			}
 
-			if let Err(e) = tokio::spawn(tokio::signal::ctrl_c()).await {
-				error!("{:?}", e);
+			#[cfg(windows)]
+			{
+				if let Err(e) = tokio::spawn(tokio::signal::ctrl_c()).await {
+					error!("{:?}", e);
+				}
+
+				info!("Wait for SIGINT (CTRL+C) to close grpc Server");
 			}
 
 			info!("gRPC server is shutting down");
