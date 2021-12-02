@@ -10,6 +10,7 @@ pub struct Config {
 	pub grpc: GRPCServer,
 	#[serde(rename = "auth")]
 	pub auth: AuthServer,
+	pub cache: Cache,
 }
 
 impl Config {
@@ -72,5 +73,20 @@ impl Default for AuthServer {
 			url: String::from("http://auth"),
 			token: String::new(),
 		}
+	}
+}
+
+/// Cache configuration
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Cache {
+	/// Cache size in megabytes
+	pub size: usize,
+}
+
+/// Default cache configuration
+impl Default for Cache {
+	/// Default cache size is 128 MB
+	fn default() -> Self {
+		Self { size: 128 }
 	}
 }

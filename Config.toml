@@ -9,3 +9,6 @@ port = 1338
 [auth]
 url = "http://auth"
 token = "x-token"
+
+[cache]
+size = 128

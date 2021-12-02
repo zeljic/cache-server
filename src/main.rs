@@ -91,8 +91,12 @@ fn init_logging() {
 async fn main() -> anyhow::Result<()> {
 	init_logging();
 
-	let config = Data::new(crate::config::Config::new()?);
-	let cache = Data::new(Mutex::new(in_memory_cache::Cache::with_size_mb(1)));
+	let config = config::Config::new()?;
+	let cache_size = config.cache.size;
+
+	let config = Data::new(config);
+
+	let cache = Data::new(Mutex::new(in_memory_cache::Cache::with_size_mb(cache_size)));
 
 	let http_server = crate::http_server::prepare_http_server(Data::clone(&cache), Data::clone(&config));
 	let grpc_server = crate::grpc_server::prepare_grpc_server(Data::clone(&cache), Data::clone(&config));
