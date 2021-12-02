@@ -22,3 +22,4 @@ services:
       CACHE_SERVER_GRPC_PORT: 81
       CACHE_SERVER_AUTH_URL: "http://auth"
       CACHE_SERVER_AUTH_TOKEN: "x-auth-token"
+      CACHE_SERVER_CACHE_SIZE: 128
