@@ -1,6 +1,6 @@
 use actix_web::{
 	web::{Data, Query},
-	HttpResponse, HttpServer,
+	HttpResponse, HttpServer, Responder,
 };
 use futures::lock::Mutex;
 use in_memory_cache::Cache;
@@ -32,6 +32,10 @@ async fn get_cache(
 			.insert_header((actix_web::http::header::CONTENT_LENGTH, content.len()))
 			.body(content)),
 	}
+}
+
+async fn default_handler() -> actix_web::Result<impl Responder> {
+	Ok(HttpResponse::Ok().body("zdravo, svete!"))
 }
 
 pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::config::Config>) -> anyhow::Result<()> {
@@ -66,7 +70,7 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 				}
 			})
 			.service(get_cache)
-			.default_service(actix_web::web::route().to(|| HttpResponse::Ok().body("zdravo, svete")))
+			.default_service(actix_web::web::to(default_handler))
 	};
 
 	HttpServer::new(http_init)

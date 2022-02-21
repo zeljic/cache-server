@@ -9,7 +9,7 @@ version = "0.3.0"
 git = "https://github.com/zeljic/in-memory-cache.git"
 
 [dependencies.actix-web]
-version = "4.0.0-beta.13"
+version = "4.0.0-rc.3"
 
 [dependencies.futures]
 version = "0.3"
@@ -22,6 +22,8 @@ version = "1"
 
 [dependencies.serde]
 version = "1"
+default-features = false
+features = ["derive"]
 
 [dependencies.tonic]
 version = "0.6"
