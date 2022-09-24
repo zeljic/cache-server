@@ -1,7 +1,5 @@
 extern crate config as config_rs;
 
-use self::config_rs::FileFormat;
-
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Config {
 	#[serde(rename = "http")]
@@ -15,19 +13,27 @@ pub struct Config {
 
 impl Config {
 	pub fn new() -> anyhow::Result<Self> {
-		let mut config = config_rs::Config::default();
+		let mut builder = config_rs::Config::builder();
 
-		if std::path::Path::new("Config.toml").exists() {
-			if let Err(e) = config.merge(config_rs::File::new("Config.toml", FileFormat::Toml)) {
-				error!("{:?}", anyhow::Error::new(e));
-			}
+		let file = std::path::Path::new("Config.toml");
+
+		if file.exists() {
+			builder = builder.add_source(config_rs::File::from(file));
 		}
 
-		config.merge(config_rs::Environment::new().prefix("CACHE_SERVER").separator("_"))?;
+		builder = builder.add_source(
+			config_rs::Environment::with_prefix("CACHE_SERVER")
+				.separator("_")
+				.try_parsing(true),
+		);
 
-		config
-			.try_into()
-			.map_err(|e| anyhow::Error::new(e).context("Unable to configure"))
+		match builder.build() {
+			Ok(built) => match built.try_deserialize::<Config>() {
+				Ok(config) => Ok(config),
+				Err(e) => Err(anyhow::Error::new(e).context("Unable to deserialize configuration")),
+			},
+			Err(e) => Err(anyhow::Error::new(e).context("Unable to build configuration")),
+		}
 	}
 }
 
