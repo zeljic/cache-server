@@ -69,6 +69,7 @@ impl Default for GRPCServer {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthServer {
+	pub enable: bool,
 	pub url: String,
 	pub token: String,
 }
@@ -76,6 +77,7 @@ pub struct AuthServer {
 impl Default for AuthServer {
 	fn default() -> Self {
 		Self {
+			enable: false,
 			url: String::from("http://auth"),
 			token: String::new(),
 		}

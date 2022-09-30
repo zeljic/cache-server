@@ -54,19 +54,21 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 				let fut = srv.call(req);
 
 				async {
-					if let Some(token) = token {
-						if let Ok(valid) = crate::check_session(&token, conf).await {
-							if valid {
-								if let Ok(res) = fut.await {
-									return Ok(res);
+					if conf.auth.enable {
+						if let Some(token) = token {
+							if let Ok(valid) = crate::check_session(&token, conf).await {
+								if valid {
+									return fut.await;
 								}
 							}
 						}
+
+						warn!("Unauthorized access!");
+
+						Err(actix_web::error::ErrorUnauthorized("Unauthorized"))
+					} else {
+						fut.await
 					}
-
-					warn!("Unauthorized access!");
-
-					Err(actix_web::error::ErrorUnauthorized("Unauthorized"))
 				}
 			})
 			.service(get_cache)
