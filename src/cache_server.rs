@@ -8,18 +8,18 @@ pub struct CacheResponse {
 	#[prost(bytes = "vec", tag = "1")]
 	pub content: ::prost::alloc::vec::Vec<u8>,
 }
-#[doc = r" Generated server implementations."]
+/// Generated server implementations.
 pub mod cache_service_server {
 	#![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
 	use tonic::codegen::*;
-	#[doc = "Generated trait containing gRPC methods that should be implemented for use with CacheServiceServer."]
+	///Generated trait containing gRPC methods that should be implemented for use with CacheServiceServer.
 	#[async_trait]
 	pub trait CacheService: Send + Sync + 'static {
 		async fn get_content(
 			&self,
 			request: tonic::Request<super::CacheRequest>,
 		) -> Result<tonic::Response<super::CacheResponse>, tonic::Status>;
-		#[doc = "Server streaming response type for the GetContentStream method."]
+		///Server streaming response type for the GetContentStream method.
 		type GetContentStreamStream: futures_core::Stream<Item = Result<super::CacheResponse, tonic::Status>> + Send + 'static;
 		async fn get_content_stream(
 			&self,
@@ -29,13 +29,15 @@ pub mod cache_service_server {
 	#[derive(Debug)]
 	pub struct CacheServiceServer<T: CacheService> {
 		inner: _Inner<T>,
-		accept_compression_encodings: (),
-		send_compression_encodings: (),
+		accept_compression_encodings: EnabledCompressionEncodings,
+		send_compression_encodings: EnabledCompressionEncodings,
 	}
 	struct _Inner<T>(Arc<T>);
 	impl<T: CacheService> CacheServiceServer<T> {
 		pub fn new(inner: T) -> Self {
-			let inner = Arc::new(inner);
+			Self::from_arc(Arc::new(inner))
+		}
+		pub fn from_arc(inner: Arc<T>) -> Self {
 			let inner = _Inner(inner);
 			Self {
 				inner,
@@ -49,6 +51,18 @@ pub mod cache_service_server {
 		{
 			InterceptedService::new(Self::new(inner), interceptor)
 		}
+		/// Enable decompressing requests with the given encoding.
+		#[must_use]
+		pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+			self.accept_compression_encodings.enable(encoding);
+			self
+		}
+		/// Compress responses with the given encoding, if the client supports it.
+		#[must_use]
+		pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+			self.send_compression_encodings.enable(encoding);
+			self
+		}
 	}
 	impl<T, B> tonic::codegen::Service<http::Request<B>> for CacheServiceServer<T>
 	where
@@ -57,7 +71,7 @@ pub mod cache_service_server {
 		B::Error: Into<StdError> + Send + 'static,
 	{
 		type Response = http::Response<tonic::body::BoxBody>;
-		type Error = Never;
+		type Error = std::convert::Infallible;
 		type Future = BoxFuture<Self::Response, Self::Error>;
 		fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 			Poll::Ready(Ok(()))
@@ -149,7 +163,7 @@ pub mod cache_service_server {
 			write!(f, "{:?}", self.0)
 		}
 	}
-	impl<T: CacheService> tonic::transport::NamedService for CacheServiceServer<T> {
+	impl<T: CacheService> tonic::server::NamedService for CacheServiceServer<T> {
 		const NAME: &'static str = "cache_server.CacheService";
 	}
 }
