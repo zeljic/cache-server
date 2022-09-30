@@ -5,17 +5,17 @@ edition = "2021"
 authors = ["Đorđe Zeljić <zeljic@gmail.com>"]
 
 [dependencies.in-memory-cache]
-version = "0.3.0"
+version = "0.4.0"
 git = "https://github.com/zeljic/in-memory-cache.git"
 
 [dependencies.actix-web]
-version = "4.0.0-rc.3"
+version = "4.2.1"
 
 [dependencies.futures]
 version = "0.3"
 
 [dependencies.bytes]
-version = "1.1"
+version = "1.2"
 
 [dependencies.anyhow]
 version = "1"
@@ -26,10 +26,10 @@ default-features = false
 features = ["derive"]
 
 [dependencies.tonic]
-version = "0.6"
+version = "0.8"
 
 [dependencies.prost]
-version = "0.9"
+version = "0.11"
 
 [dependencies.tokio]
 version = "1"
@@ -51,7 +51,7 @@ version = "0.9"
 version = "1"
 
 [build-dependencies.tonic-build]
-version = "0.6"
+version = "0.8"
 
 [profile.release]
 lto = false
