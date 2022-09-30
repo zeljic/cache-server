@@ -16,7 +16,7 @@ use tonic::{service::Interceptor, Request, Response, Status};
 type PinBoxResponse<T> = Pin<Box<dyn Stream<Item = Result<T, Status>> + Send + Sync>>;
 
 struct CacheServerService {
-	cache: Data<futures::lock::Mutex<in_memory_cache::Cache>>,
+	cache: Data<Mutex<Cache>>,
 }
 
 #[tonic::async_trait]
@@ -32,7 +32,7 @@ impl CacheService for CacheServerService {
 		.await
 		{
 			Some(content) => {
-				let response = crate::cache_server::CacheResponse {
+				let response = CacheResponse {
 					content: content.to_vec(),
 				};
 
@@ -88,19 +88,23 @@ impl Interceptor for AuthenticationInterceptor {
 	fn call(&mut self, req: Request<()>) -> Result<Request<()>, Status> {
 		let config = Data::clone(&self.config);
 
-		if let Some(token) = req.metadata().get("token") {
-			if let Ok(token) = String::from_utf8(token.as_bytes().to_vec()) {
-				if let Ok(valid) = crate::check_session_blocking(&token, config) {
-					return if valid {
-						Ok(req)
-					} else {
-						Err(Status::unauthenticated("Invalid token"))
-					};
+		if config.auth.enable {
+			if let Some(token) = req.metadata().get("token") {
+				if let Ok(token) = String::from_utf8(token.as_bytes().to_vec()) {
+					if let Ok(valid) = crate::check_session_blocking(&token, config) {
+						return if valid {
+							Ok(req)
+						} else {
+							Err(Status::unauthenticated("Invalid token"))
+						};
+					}
 				}
 			}
-		}
 
-		Err(Status::unauthenticated("Invalid session"))
+			Err(Status::unauthenticated("Invalid session"))
+		} else {
+			Ok(req)
+		}
 	}
 }
 

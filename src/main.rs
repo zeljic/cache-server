@@ -98,8 +98,8 @@ async fn main() -> anyhow::Result<()> {
 
 	let cache = Data::new(Mutex::new(in_memory_cache::Cache::with_size_mb(cache_size)));
 
-	let http_server = crate::http_server::prepare_http_server(Data::clone(&cache), Data::clone(&config));
-	let grpc_server = crate::grpc_server::prepare_grpc_server(Data::clone(&cache), Data::clone(&config));
+	let http_server = http_server::prepare_http_server(Data::clone(&cache), Data::clone(&config));
+	let grpc_server = grpc_server::prepare_grpc_server(Data::clone(&cache), Data::clone(&config));
 
 	if let Err(e) = try_join!(http_server, grpc_server) {
 		error!("{:?}", e);
