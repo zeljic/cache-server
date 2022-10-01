@@ -7,7 +7,7 @@ services:
   cache-server:
     build:
       context: ../
-      dockerfile: Dockerfile
+      dockerfile: .Dockerfile
     container_name: cache-server
     networks:
       - devel
@@ -20,6 +20,7 @@ services:
       CACHE_SERVER_HTTP_PORT: 80
       CACHE_SERVER_GRPC_HOST: "0.0.0.0"
       CACHE_SERVER_GRPC_PORT: 81
+      CACHE_SERVER_AUTH_ENABLE: "false"
       CACHE_SERVER_AUTH_URL: "http://auth"
       CACHE_SERVER_AUTH_TOKEN: "x-auth-token"
       CACHE_SERVER_CACHE_SIZE: 128

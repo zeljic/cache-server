@@ -1,10 +1,11 @@
 FROM rust:latest as builder
 
+RUN apt update && apt install -y protobuf-compiler; protoc --version
+
 WORKDIR /usr/src/cache-server
 
 COPY . .
 
-RUN rustup component add rustfmt
 RUN cargo build --release
 
 FROM debian:bullseye-slim
