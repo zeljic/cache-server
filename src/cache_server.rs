@@ -1,9 +1,9 @@
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct CacheRequest {
 	#[prost(string, tag = "1")]
 	pub path: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct CacheResponse {
 	#[prost(bytes = "vec", tag = "1")]
 	pub content: ::prost::alloc::vec::Vec<u8>,

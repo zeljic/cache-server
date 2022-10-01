@@ -1,9 +1,9 @@
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct SessionRequest {
 	#[prost(string, tag = "1")]
 	pub token: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct SessionResponse {
 	#[prost(bool, tag = "1")]
 	pub valid: bool,
@@ -11,8 +11,7 @@ pub struct SessionResponse {
 /// Generated client implementations.
 pub mod authentication_service_client {
 	#![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
-	use tonic::codegen::http::Uri;
-	use tonic::codegen::*;
+	use tonic::codegen::{http::Uri, *};
 	#[derive(Debug, Clone)]
 	pub struct AuthenticationServiceClient<T> {
 		inner: tonic::client::Grpc<T>,
