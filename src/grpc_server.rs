@@ -27,7 +27,7 @@ impl CacheService for CacheServerService {
 		return match async {
 			let mut cache = self.cache.lock().await;
 
-			crate::get_cached_value(cache.deref_mut(), path).await
+			crate::get_value(cache.deref_mut(), path).await
 		}
 		.await
 		{
@@ -57,7 +57,7 @@ impl CacheService for CacheServerService {
 			if let Some(content) = async {
 				let mut cache = cache.lock().await;
 
-				crate::get_cached_value(cache.deref_mut(), &path).await
+				crate::get_value(cache.deref_mut(), &path).await
 			}
 			.await
 			{
