@@ -32,7 +32,7 @@ where
 	None
 }
 
-async fn get_cached_value<T>(cache: &mut in_memory_cache::Cache, key: T) -> Option<bytes::Bytes>
+async fn get_value<T>(cache: &mut in_memory_cache::Cache, key: T) -> Option<bytes::Bytes>
 where
 	T: Into<String>,
 {
@@ -48,7 +48,7 @@ where
 	value
 }
 
-pub async fn check_session(token: &str, config: Data<crate::config::Config>) -> anyhow::Result<bool> {
+pub async fn check_session(token: &str, config: Data<config::Config>) -> anyhow::Result<bool> {
 	let url: &str = config.auth.url.as_str();
 
 	let endpoint = tonic::transport::channel::Endpoint::from_str(url).map_err(|e| {
@@ -69,7 +69,7 @@ pub async fn check_session(token: &str, config: Data<crate::config::Config>) -> 
 	Ok(response.valid)
 }
 
-pub fn check_session_blocking(token: &str, config: Data<crate::config::Config>) -> anyhow::Result<bool> {
+pub fn check_session_blocking(token: &str, config: Data<config::Config>) -> anyhow::Result<bool> {
 	futures::executor::block_on(check_session(token, config))
 }
 

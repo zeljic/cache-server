@@ -1,41 +1,104 @@
-use actix_web::{
-	web::{Data, Query},
-	HttpResponse, HttpServer, Responder,
-};
+use actix_web::{web, web::Data, HttpRequest, HttpResponse, HttpServer, Responder};
 use futures::lock::Mutex;
 use in_memory_cache::Cache;
-use std::ops::DerefMut;
 
 use actix_web::dev::Service;
 
-use actix_web::App;
+use actix_web::{http::header::TryIntoHeaderPair, App};
 
-#[derive(Deserialize, Serialize, Debug)]
-struct RequestQuery {
-	path: String,
+use futures::StreamExt;
+
+#[inline]
+fn header_key<T: Into<String>>(key: T) -> impl TryIntoHeaderPair {
+	("x-cache-server-key", key.into())
 }
 
-#[get("/cache/")]
-async fn get_cache(
-	query: Query<RequestQuery>,
-	cache: Data<Mutex<in_memory_cache::Cache>>,
-) -> actix_web::Result<actix_web::HttpResponse> {
-	match async {
-		let mut cache = cache.lock().await;
+#[get("/get/{key}")]
+async fn get_cache(path: web::Path<String>, cache: Data<Mutex<Cache>>) -> actix_web::Result<HttpResponse> {
+	let key = path.into_inner();
 
-		crate::get_cached_value(cache.deref_mut(), &query.path).await
-	}
-	.await
-	{
-		None => Ok(HttpResponse::NotFound().finish()),
+	match async { cache.lock().await.get_bytes(key.to_owned()) }.await {
+		None => Ok(HttpResponse::NotFound().insert_header(header_key(key)).finish()),
 		Some(content) => Ok(HttpResponse::Ok()
 			.insert_header((actix_web::http::header::CONTENT_LENGTH, content.len()))
 			.body(content)),
 	}
 }
 
+#[get("/get")]
+async fn get_cache_key(request: HttpRequest, cache: Data<Mutex<Cache>>) -> actix_web::Result<HttpResponse> {
+	match get_header(&request, "x-cache-server-key") {
+		Some(key) => match async { cache.lock().await.get_bytes(&key) }.await {
+			None => Ok(HttpResponse::NotFound().insert_header(header_key(&key)).finish()),
+			Some(content) => Ok(HttpResponse::Ok()
+				.insert_header(header_key(&key))
+				.insert_header((actix_web::http::header::CONTENT_LENGTH, content.len()))
+				.body(content)),
+		},
+		None => Err(actix_web::error::ErrorBadRequest("No key")),
+	}
+}
+
+async fn set(key: &str, mut body: web::Payload, cache: Data<Mutex<Cache>>) -> anyhow::Result<()> {
+	let mut bytes = bytes::BytesMut::new();
+
+	while let Some(item) = body.next().await {
+		bytes.extend_from_slice(&item?);
+	}
+
+	cache
+		.lock()
+		.await
+		.add(key, bytes)
+		.map_err(|e| anyhow::Error::msg(e.to_string()))
+}
+
+#[post("/set/{key}")]
+async fn set_cache_key(
+	path: web::Path<String>,
+	body: web::Payload,
+	cache: Data<Mutex<Cache>>,
+) -> actix_web::Result<HttpResponse> {
+	let key: String = path.into_inner();
+
+	match set(&key, body, cache).await {
+		Ok(_) => Ok(HttpResponse::Ok().insert_header(header_key(key)).finish()),
+		Err(e) => {
+			error!("{:?}", e);
+			Err(actix_web::error::ErrorBadRequest(e))
+		}
+	}
+}
+
+#[post("/set")]
+async fn set_cache(request: HttpRequest, body: web::Payload, cache: Data<Mutex<Cache>>) -> actix_web::Result<HttpResponse> {
+	match get_header(&request, "x-cache-server-key") {
+		Some(key) => match set(&key, body, cache).await {
+			Ok(_) => Ok(HttpResponse::Ok().insert_header(header_key(key)).finish()),
+			Err(e) => {
+				error!("{:?}", e);
+
+				Err(actix_web::error::ErrorInternalServerError("Unable to set key"))
+			}
+		},
+		None => Err(actix_web::error::ErrorBadRequest("No key")),
+	}
+}
+
 async fn default_handler() -> actix_web::Result<impl Responder> {
 	Ok(HttpResponse::Ok().body("zdravo, svete!"))
+}
+
+fn get_header(request: &HttpRequest, key: &str) -> Option<String> {
+	let mut token = None;
+
+	if let Some(t) = request.headers().get(key) {
+		if let Ok(t) = t.to_str() {
+			token = Some(t.to_owned());
+		}
+	}
+
+	token
 }
 
 pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::config::Config>) -> anyhow::Result<()> {
@@ -46,12 +109,12 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 
 		App::new()
 			.app_data(Data::clone(&cache))
-			.wrap_fn(move |req, srv| {
+			.wrap_fn(move |service_request, app_routing| {
 				let conf = Data::clone(&config);
 
-				let token: Option<String> = req.cookie(&conf.auth.token).map(|cookie| cookie.value().to_owned());
+				let token = get_header(service_request.request(), &conf.auth.token);
 
-				let fut = srv.call(req);
+				let fut = app_routing.call(service_request);
 
 				async {
 					if conf.auth.enable {
@@ -72,7 +135,10 @@ pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::
 				}
 			})
 			.service(get_cache)
-			.default_service(actix_web::web::to(default_handler))
+			.service(get_cache_key)
+			.service(set_cache_key)
+			.service(set_cache)
+			.default_service(web::to(default_handler))
 	};
 
 	HttpServer::new(http_init)
