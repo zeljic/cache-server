@@ -25,29 +25,6 @@ mod config;
 mod grpc_server;
 mod http_server;
 
-async fn populate_cache<T>(_cache: &mut in_memory_cache::Cache, _key: T) -> Option<bytes::Bytes>
-where
-	T: Into<String>,
-{
-	None
-}
-
-async fn get_value<T>(cache: &mut in_memory_cache::Cache, key: T) -> Option<bytes::Bytes>
-where
-	T: Into<String>,
-{
-	let key: String = key.into();
-	let key: &str = &key;
-
-	let mut value: Option<bytes::Bytes> = cache.get_bytes(key);
-
-	if value.is_none() {
-		value = populate_cache(cache, key).await;
-	}
-
-	value
-}
-
 pub async fn check_session(token: &str, config: Data<config::Config>) -> anyhow::Result<bool> {
 	let url: &str = config.auth.url.as_str();
 

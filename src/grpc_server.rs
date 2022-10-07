@@ -5,8 +5,7 @@ use crate::cache_server::{
 use actix_web::web::Data;
 use futures::{lock::Mutex, Stream, StreamExt};
 use in_memory_cache::Cache;
-
-use std::{ops::DerefMut, pin::Pin};
+use std::pin::Pin;
 
 #[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
@@ -24,13 +23,7 @@ impl CacheService for CacheServerService {
 	async fn get_content(&self, request: Request<CacheRequest>) -> Result<Response<CacheResponse>, Status> {
 		let path: &str = request.get_ref().path.as_str();
 
-		return match async {
-			let mut cache = self.cache.lock().await;
-
-			crate::get_value(cache.deref_mut(), path).await
-		}
-		.await
-		{
+		match async { self.cache.lock().await.get_bytes(path) }.await {
 			Some(content) => {
 				let response = CacheResponse {
 					content: content.to_vec(),
@@ -39,7 +32,7 @@ impl CacheService for CacheServerService {
 				Ok(Response::new(response))
 			}
 			None => Err(Status::not_found("Cache item is not found")),
-		};
+		}
 	}
 
 	type GetContentStreamStream = PinBoxResponse<CacheResponse>;
@@ -54,13 +47,7 @@ impl CacheService for CacheServerService {
 		let (tx, rx) = tokio::sync::mpsc::channel(4);
 
 		tokio::spawn(async move {
-			if let Some(content) = async {
-				let mut cache = cache.lock().await;
-
-				crate::get_value(cache.deref_mut(), &path).await
-			}
-			.await
-			{
+			if let Some(content) = async { cache.lock().await.get_bytes(path) }.await {
 				let mut stream = tokio_stream::iter(content.chunks(4 * 1024));
 
 				while let Some(chunk) = stream.next().await {
