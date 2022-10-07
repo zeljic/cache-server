@@ -13,28 +13,24 @@ fn header_key<T: Into<String>>(key: T) -> impl TryIntoHeaderPair {
 	("x-cache-server-key", key.into())
 }
 
-#[get("/get/{key}")]
-async fn get_cache(path: web::Path<String>, cache: Data<Mutex<Cache>>) -> actix_web::Result<HttpResponse> {
-	let key = path.into_inner();
-
-	match async { cache.lock().await.get_bytes(key.to_owned()) }.await {
-		None => Ok(HttpResponse::NotFound().insert_header(header_key(key)).finish()),
+pub async fn get(key: &str, cache: Data<Mutex<Cache>>) -> actix_web::Result<HttpResponse> {
+	match async { cache.lock().await.get_bytes(key) }.await {
 		Some(content) => Ok(HttpResponse::Ok()
 			.insert_header((actix_web::http::header::CONTENT_LENGTH, content.len()))
 			.body(content)),
+		None => Ok(HttpResponse::NotFound().finish()),
 	}
+}
+
+#[get("/get/{key}")]
+async fn get_cache(path: web::Path<String>, cache: Data<Mutex<Cache>>) -> actix_web::Result<HttpResponse> {
+	get(path.into_inner().as_str(), cache).await
 }
 
 #[get("/get")]
 async fn get_cache_key(request: HttpRequest, cache: Data<Mutex<Cache>>) -> actix_web::Result<HttpResponse> {
 	match get_header(&request, "x-cache-server-key") {
-		Some(key) => match async { cache.lock().await.get_bytes(&key) }.await {
-			None => Ok(HttpResponse::NotFound().insert_header(header_key(&key)).finish()),
-			Some(content) => Ok(HttpResponse::Ok()
-				.insert_header(header_key(&key))
-				.insert_header((actix_web::http::header::CONTENT_LENGTH, content.len()))
-				.body(content)),
-		},
+		Some(key) => get(&key, cache).await,
 		None => Err(actix_web::error::ErrorBadRequest("No key")),
 	}
 }
@@ -65,6 +61,7 @@ async fn set_cache_key(
 		Ok(_) => Ok(HttpResponse::Ok().insert_header(header_key(key)).finish()),
 		Err(e) => {
 			error!("{:?}", e);
+
 			Err(actix_web::error::ErrorBadRequest(e))
 		}
 	}
@@ -85,10 +82,6 @@ async fn set_cache(request: HttpRequest, body: web::Payload, cache: Data<Mutex<C
 	}
 }
 
-async fn default_handler() -> actix_web::Result<impl Responder> {
-	Ok(HttpResponse::Ok().body("zdravo, svete!"))
-}
-
 fn get_header(request: &HttpRequest, key: &str) -> Option<String> {
 	let mut token = None;
 
@@ -99,6 +92,10 @@ fn get_header(request: &HttpRequest, key: &str) -> Option<String> {
 	}
 
 	token
+}
+
+async fn default_handler() -> actix_web::Result<impl Responder> {
+	Ok(HttpResponse::Ok().body("zdravo, svete!"))
 }
 
 pub async fn prepare_http_server(cache: Data<Mutex<Cache>>, config: Data<crate::config::Config>) -> anyhow::Result<()> {
