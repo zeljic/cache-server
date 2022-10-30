@@ -7,6 +7,7 @@ use actix_web::dev::Service;
 use actix_web::{http::header::TryIntoHeaderPair, App};
 
 use futures::StreamExt;
+use uuid::Uuid;
 
 #[inline]
 fn header_key<T: Into<String>>(key: T) -> impl TryIntoHeaderPair {
@@ -67,19 +68,19 @@ async fn set_cache_key(
 	}
 }
 
+/// Set cache entry with key from header x-cache-server-key, if there is no header, create own key
 #[post("/set")]
 async fn set_cache(request: HttpRequest, body: web::Payload, cache: Data<Mutex<Cache>>) -> actix_web::Result<HttpResponse> {
-	match get_header(&request, "x-cache-server-key") {
-		Some(key) => match set(&key, body, cache).await {
-			Ok(_) => Ok(HttpResponse::Ok().insert_header(header_key(key)).finish()),
-			Err(e) => {
-				error!("{:?}", e);
+	let key = get_header(&request, "x-cache-server-key").unwrap_or_else(|| Uuid::new_v4().to_string());
 
-				Err(actix_web::error::ErrorInternalServerError("Unable to set key"))
-			}
-		},
-		None => Err(actix_web::error::ErrorBadRequest("No key")),
-	}
+	set(&key, body, cache)
+		.await
+		.map(|_| HttpResponse::Ok().insert_header(header_key(&key)).finish())
+		.map_err(|e| {
+			error!("{:?}", e);
+
+			actix_web::error::ErrorInternalServerError("Unable to set key")
+		})
 }
 
 fn get_header(request: &HttpRequest, key: &str) -> Option<String> {

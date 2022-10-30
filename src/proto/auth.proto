@@ -2,14 +2,14 @@ syntax = "proto3";
 
 package auth;
 
+service AuthenticationService {
+  rpc IsSessionValid(SessionRequest) returns (SessionResponse);
+}
+
 message SessionRequest {
-  string Token = 1;
+  string token = 1;
 }
 
 message SessionResponse {
   bool valid = 1;
-}
-
-service AuthenticationService {
-  rpc IsSessionValid(SessionRequest) returns (SessionResponse);
 }
